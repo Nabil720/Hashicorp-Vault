@@ -1,0 +1,33 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu2204"
+
+  # Vault1 VM
+  config.vm.define "vault_1" do |vault_1|
+    vault_1.vm.hostname = "vault_1"
+    vault_1.vm.network "private_network", ip: "192.168.56.127"  # Unique IP for vault_1
+    vault_1.vm.provider :libvirt do |lv|
+      lv.memory = 4096  # 4 GB of memory for vault_1 VM
+      lv.cpus = 2       # 2 CPUs for vault_1 VM
+    end
+  end
+
+  # Vault2 VM
+  config.vm.define "vault_2" do |vault_2|
+    vault_2.vm.hostname = "vault_2"
+    vault_2.vm.network "private_network", ip: "192.168.56.128"  # Unique IP for vault_2
+    vault_2.vm.provider :libvirt do |lv|
+      lv.memory = 4096  # 4 GB of memory for vault_2 VM
+      lv.cpus = 2       # 2 CPUs for vault_2 VM
+    end
+  end
+
+  # Vault3 VM
+  config.vm.define "vault_3" do |vault_3|
+    vault_3.vm.hostname = "vault_3"
+    vault_3.vm.network "private_network", ip: "192.168.56.129"  # Unique IP for vault_3
+    vault_3.vm.provider :libvirt do |lv|
+      lv.memory = 4096  # 4 GB of memory for vault_3 VM
+      lv.cpus = 2       # 2 CPUs for vault_3 VM
+    end
+  end
+end
