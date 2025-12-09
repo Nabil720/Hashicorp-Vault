@@ -76,6 +76,8 @@ vagrant ssh vault3
 
 
 ## Step 3: Install Vault
+
+### On each Vault node
 ```bash
 sudo apt update
 sudo apt install -y wget gpg lsb-release unzip curl zip openssl
@@ -110,9 +112,9 @@ Get Sudo permission :
 ```bash
 sudo su
 ```
+### Terminal-1 vault1
 
 ```bash
-#Terminal-1 vault1
 cat << EOF > /etc/vault.d/vault.hcl
 disable_mlock = true
 storage "raft" {
@@ -137,10 +139,12 @@ cluster_addr = "http://192.168.56.130:8201"   # IP of vault1
 api_addr     = "http://192.168.56.130:8200"   # IP of vault1
 ui = true
 EOF
+```
 
 
+### Terminal-2 vault2
 
-# Terminal-2 vault2
+```bash
 cat << EOF > /etc/vault.d/vault.hcl
 disable_mlock = true
 storage "raft" {
@@ -165,11 +169,13 @@ cluster_addr = "http://192.168.56.131:8201"   # IP of vault2
 api_addr     = "http://192.168.56.131:8200"   # IP of vault2
 ui = true
 EOF
+```
 
 
 
+### Terminal-3 vault3
 
-# Terminal-3 vault3
+```bash
 cat << EOF > /etc/vault.d/vault.hcl
 disable_mlock = true
 storage "raft" {
@@ -200,7 +206,7 @@ EOF
 
 
 ## Step 5: Enable and Start Vault
-For each terminal, run the following commands to enable and start Vault:
+For each Vault node, run the following commands to enable and start Vault:
 
 ```bash
 cat << EOF > /etc/profile.d/vault.sh
@@ -232,7 +238,17 @@ vault login <root key>
 vault operator raft list-peers
 
 ```
+## Output
+
+```bash
+Node      Address                    State       Voter
+----      -------                    -----       -----
+vault-node-1    192.168.56.130:8201    leader      true
+```
+
 ## Step 7: Unseal  Nodes-2 Uaing Master Node Key:
+
+To add other Vault nodes to the cluster (Vault2, Vault3), So I need to unseal each of them using the unseal keys. This is important, because without unsealing, Vault will not join the cluster.
 
 ```bash
 
@@ -245,6 +261,9 @@ vault operator unseal <key3>
 ```
 
 ## Step 8: Unseal  Nodes-3 Uaing Master Node Key:
+
+To add other Vault nodes to the cluster (Vault2, Vault3), So I need to unseal each of them using the unseal keys. This is important, because without unsealing, Vault will not join the cluster.
+
 ```bash
 Terminal-3
 vault operator unseal <key1>
@@ -270,7 +289,7 @@ vault-node-3    192.168.56.132:8201    follower    true
 ```
 
 
-## Step 10: Fault Tolerance Test
+## ⚠️ Fault Tolerance Test
 
 This step demonstrates Vault's high availability and fault tolerance capabilities by testing failover when the leader node goes down.
 1. Create a New Secret Engine and Secret
@@ -306,6 +325,22 @@ Key      Value
 Mongo    mypass
 ```
 2. Stop the Leader Node
+
+
+```bash
+vault login <root key>
+vault operator raft list-peers
+```
+## Output
+
+```bash
+Node      Address                    State       Voter
+----      -------                    -----       -----
+vault-node-1    192.168.56.130:8201    leader      true
+vault-node-2    192.168.56.131:8201    follower    true
+vault-node-3    192.168.56.132:8201    follower    true
+```
+
 Simulate a leader failure by stopping Vault on the leader node:
 
 ```bash
