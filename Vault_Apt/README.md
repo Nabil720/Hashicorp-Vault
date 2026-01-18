@@ -1,4 +1,4 @@
-# Vault Cluster Setup Documentation Using Vagrant(Without KMS)
+# Vault Cluster Setup Documentation Using Vagrant
 
 This documentation provides a step-by-step guide to setting up a HashiCorp Vault Cluster using Vagrant and Libvirt. The cluster consists of three Vault nodes configured to run in a Raft-based storage mode for high availability.
 
@@ -125,7 +125,7 @@ vault version
                 "kms:Decrypt",
                 "kms:DescribeKey"
             ],
-            "Resource": "arn:aws:kms:ap-south-1:137440810107:key/f7940434-6cdb-4f1c-b04a-7ad91c3cfac3"
+            "Resource": "arn:aws:kms:ap-sou******-4f1c-b04a-7ad91c3cfac3"
         }
     ]
 }
