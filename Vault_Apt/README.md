@@ -170,7 +170,7 @@ sudo chmod 600 /etc/vault.d/vault.env
 ### Step 5: Update Vault Systemd Service File
 Edit the Vault systemd service file:
 ```bash
-sudo vi /etc/systemd/system/vault.service
+sudo vi /usr/lib/systemd/system/vault.service
 
 
 [Service] 
@@ -218,7 +218,7 @@ listener "tcp" {
 
 seal "awskms" {
   region     = "ap-south-1"
-  kms_key_id = "f7940434-6cdb-4f1c-b04a-7ad91c3cfac3"
+  kms_key_id = "f79****-7ad91c3cfac3"
 }
 
 cluster_addr = "http://192.168.56.130:8201"   # IP of vault1
@@ -253,7 +253,7 @@ listener "tcp" {
 
 seal "awskms" {
   region     = "ap-south-1"
-  kms_key_id = "f7940434-6cdb-4f1c-b04a-7ad91c3cfac3"
+  kms_key_id = "f79****-7ad91c3cfac3"
 }
 
 
@@ -290,7 +290,7 @@ listener "tcp" {
 
 seal "awskms" {
   region     = "ap-south-1"
-  kms_key_id = "f7940434-6cdb-4f1c-b04a-7ad91c3cfac3"
+  kms_key_id = "f79****-7ad91c3cfac3"
 }
 
 
