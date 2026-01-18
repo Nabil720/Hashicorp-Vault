@@ -102,6 +102,87 @@ vault version
 ```
 
 
+
+## AWS  Part
+### 1. Create KMS Key For Vault Unsealing Process
+-   **Key Type:** `Symmetric`
+-   **Key Usage:** `Encrypt` and `Decrypt`
+-   Attach the **default key policy** (or customize for your IAM users).
+-   **Important:** Note down the **KMS Key ID**
+
+ ### 2. Create IAM Policy & Role To Use This KMS Key
+
+- Policy should be 
+```bash
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VaultKMSUnseal",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:DescribeKey"
+            ],
+            "Resource": "arn:aws:kms:ap-south-1:137440810107:key/f7940434-6cdb-4f1c-b04a-7ad91c3cfac3"
+        }
+    ]
+}
+```
+
+### Step 3: Create IAM User and Attach Policy
+
+* Go to IAM → Users → Create user
+
+* User name example:
+      vault-kms-user
+
+* Attach the policy created in Step 2
+
+* Complete the user creation
+
+* Save the following credentials securely:
+          AWS Access Key ID
+          AWS Secret Access Key
+
+
+### Step 4: Create Vault Environment File
+
+Create the environment file:
+
+```bash
+sudo mkdir -p /etc/vault.d 
+sudo vi /etc/vault.d/vault.env
+
+
+AWS_ACCESS_KEY_ID=AKIAxxxxxxxxxxxx
+AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+AWS_DEFAULT_REGION=ap-south-1
+```
+Set correct permissions:
+```bash
+sudo chown vault:vault /etc/vault.d/vault.env 
+sudo chmod 600 /etc/vault.d/vault.env
+```
+
+
+### Step 5: Update Vault Systemd Service File
+Edit the Vault systemd service file:
+```bash
+sudo vi /etc/systemd/system/vault.service
+
+
+[Service] 
+EnvironmentFile=/etc/vault.d/vault.env
+```
+Reload systemd and restart Vault:
+```bash
+sudo systemctl daemon-reload 
+sudo systemctl restart vault 
+sudo systemctl status vault
+```
+
 ## Step 4: Configure Vault on Each Node
 
 Each node (vault1, vault2, vault3) needs a custom vault.hcl configuration file.
@@ -135,6 +216,11 @@ listener "tcp" {
   tls_disable     = 1
 }
 
+seal "awskms" {
+  region     = "ap-south-1"
+  kms_key_id = "f7940434-6cdb-4f1c-b04a-7ad91c3cfac3"
+}
+
 cluster_addr = "http://192.168.56.130:8201"   # IP of vault1
 api_addr     = "http://192.168.56.130:8200"   # IP of vault1
 ui = true
@@ -164,6 +250,12 @@ listener "tcp" {
   cluster_address = "0.0.0.0:8201"
   tls_disable     = 1
 }
+
+seal "awskms" {
+  region     = "ap-south-1"
+  kms_key_id = "f7940434-6cdb-4f1c-b04a-7ad91c3cfac3"
+}
+
 
 cluster_addr = "http://192.168.56.131:8201"   # IP of vault2
 api_addr     = "http://192.168.56.131:8200"   # IP of vault2
@@ -195,6 +287,12 @@ listener "tcp" {
   cluster_address = "0.0.0.0:8201"
   tls_disable     = 1
 }
+
+seal "awskms" {
+  region     = "ap-south-1"
+  kms_key_id = "f7940434-6cdb-4f1c-b04a-7ad91c3cfac3"
+}
+
 
 cluster_addr = "http://192.168.56.132:8201"   # IP of vault3
 api_addr     = "http://192.168.56.132:8200"   # IP of vault3
