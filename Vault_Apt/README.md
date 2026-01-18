@@ -136,15 +136,15 @@ vault version
 * Go to IAM → Users → Create user
 
 * User name example:
-      vault-kms-user
+      `vault-kms-user`
 
 * Attach the policy created in Step 2
 
 * Complete the user creation
 
 * Save the following credentials securely:
-          AWS Access Key ID
-          AWS Secret Access Key
+          * AWS Access Key ID
+          * AWS Secret Access Key
 
 
 ### Step 4: Create Vault Environment File
