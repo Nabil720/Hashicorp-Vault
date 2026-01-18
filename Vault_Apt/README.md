@@ -143,8 +143,8 @@ vault version
 * Complete the user creation
 
 * Save the following credentials securely:
-          * AWS Access Key ID
-          * AWS Secret Access Key
+  * AWS Access Key ID
+  * AWS Secret Access Key
 
 
 ### Step 4: Create Vault Environment File
