@@ -1,4 +1,4 @@
-# Vault Cluster Setup Documentation Using Vagrant(with out kms)
+# Vault Cluster Setup Documentation Using Vagrant(with kms)
 
 This documentation provides a step-by-step guide to setting up a HashiCorp Vault Cluster using Vagrant and Libvirt. The cluster consists of three Vault nodes configured to run in a Raft-based storage mode for high availability.
 
@@ -52,6 +52,16 @@ Vagrant.configure("2") do |config|
       lv.cpus = 2       # 2 CPUs for vault3 VM
     end
   end
+  # LB VM
+  config.vm.define "lb" do |lb|
+    lb.vm.hostname = "lb"
+    lb.vm.network "private_network", ip: "192.168.56.133"  # Unique IP for lb
+    lb.vm.provider :libvirt do |lv|
+      lv.memory = 2048 # 2 GB of memory for lb VM
+      lv.cpus = 2       # 2 CPUs for lb VM
+    end
+  end
+
 end
 ```
 Create VM Using Vagrantfile:
@@ -72,12 +82,15 @@ vagrant ssh vault2
 # Terminal 3: SSH into vault3
 vagrant ssh vault3
 
+# Terminal 4: SSH into lb
+vagrant ssh lb
+
 ```
 
 
-## Step 3: Install Vault
+## Step 3: Installation 
 
-### On each Vault node
+### On  Vault node
 ```bash
 sudo apt update
 sudo apt install -y wget gpg lsb-release unzip curl zip openssl
@@ -109,6 +122,137 @@ sudo chown -R vault:vault /data
 sudo chmod -R 750 /data
 ```
 
+### On  LB node
+
+```bash
+sudo apt install -y haproxy
+
+cat <<EOF | sudo tee -a /etc/hosts
+192.168.56.130  vault-node-1
+192.168.56.131  vault-node-2
+192.168.56.132  vault-node-3
+EOF
+
+init 6
+```
+Configure HAProxy
+
+```bash
+sudo nano /etc/haproxy/haproxy.cfg
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    daemon
+
+defaults
+    log global
+    mode tcp
+    timeout connect 5000ms
+    timeout client 50000ms
+    timeout server 50000ms
+
+frontend vault
+    bind 192.168.56.133:8200
+    option tcplog
+    mode tcp
+    default_backend vault-nodes
+
+backend vault-nodes
+    mode tcp
+    balance roundrobin
+    option tcp-check
+    server vault-1 192.168.56.130:8200 check fall 3 rise 2
+    server vault-2 192.168.56.131:8200 check fall 3 rise 2
+    server vault-3 192.168.56.132:8200 check fall 3 rise 2
+
+```
+
+```bash
+sudo systemctl restart haproxy
+sudo systemctl enable haproxy
+```
+
+
+
+
+## AWS  Part
+### 1. Create KMS Key For Vault Unsealing Process
+-   **Key Type:** `Symmetric`
+-   **Key Usage:** `Encrypt` and `Decrypt`
+-   Attach the **default key policy** (or customize for your IAM users).
+-   **Important:** Note down the **KMS Key ID**
+
+ ### 2. Create IAM Policy & Role To Use This KMS Key
+
+- Policy should be 
+```bash
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VaultKMSUnseal",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:DescribeKey"
+            ],
+            "Resource": "arn:aws:kms:ap-sou******-4f1c-b04a-7ad91c3cfac3"
+        }
+    ]
+}
+```
+
+### Step 3: Create IAM User and Attach Policy
+
+* Go to IAM → Users → Create user
+
+* User name example:
+      `vault-kms-user`
+
+* Attach the policy created in Step 2
+
+* Complete the user creation
+
+* Save the following credentials securely:
+  * AWS Access Key ID
+  * AWS Secret Access Key
+
+
+### Step 4: Create Vault Environment File
+
+Create the environment file:
+
+```bash
+sudo vim /etc/vault.d/vault.env
+
+
+AWS_ACCESS_KEY_ID=AKIAxxxxxxxxxxxx
+AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+AWS_DEFAULT_REGION=ap-south-1
+```
+Set correct permissions:
+```bash
+sudo chown vault:vault /etc/vault.d/vault.env 
+sudo chmod 600 /etc/vault.d/vault.env
+```
+
+
+### Step 5: Update Vault Systemd Service File
+Edit the Vault systemd service file:
+```bash
+sudo vim /usr/lib/systemd/system/vault.service
+
+
+[Service] 
+EnvironmentFile=/etc/vault.d/vault.env
+```
+Reload systemd and restart Vault:
+```bash
+sudo systemctl daemon-reload 
+sudo systemctl restart vault 
+sudo systemctl status vault
+```
 
 ## Step 4: Configure Vault on Each Node
 
@@ -143,6 +287,10 @@ listener "tcp" {
   tls_disable     = 1
 }
 
+seal "awskms" {
+  region     = "ap-south-1"
+  kms_key_id = "f79****-7ad91c3cfac3"
+}
 
 cluster_addr = "http://192.168.56.130:8201"   # IP of vault1
 api_addr     = "http://192.168.56.130:8200"   # IP of vault1
@@ -172,6 +320,11 @@ listener "tcp" {
   address         = "0.0.0.0:8200"
   cluster_address = "0.0.0.0:8201"
   tls_disable     = 1
+}
+
+seal "awskms" {
+  region     = "ap-south-1"
+  kms_key_id = "f79****-7ad91c3cfac3"
 }
 
 
@@ -206,6 +359,11 @@ listener "tcp" {
   tls_disable     = 1
 }
 
+seal "awskms" {
+  region     = "ap-south-1"
+  kms_key_id = "f79****-7ad91c3cfac3"
+}
+
 
 cluster_addr = "http://192.168.56.132:8201"   # IP of vault3
 api_addr     = "http://192.168.56.132:8200"   # IP of vault3
@@ -220,13 +378,10 @@ EOF
 For each Vault node, run the following commands to enable and start Vault:
 
 ```bash
-cat << EOF > /etc/profile.d/vault.sh
-export VAULT_ADDR=http://127.0.0.1:8200
-export VAULT_SKIP_VERIFY=true
-EOF
 systemctl enable vault
 systemctl start vault
 export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_SKIP_VERIFY=true
 
 ```
 
@@ -238,52 +393,7 @@ Only run the following commands on the Vault master node (Vault1):
 
 ```bash
 vault operator init
-
-vault operator unseal <key1>
-vault operator unseal <key2>
-vault operator unseal <key3>
-
-
-vault login <root key>
-
-vault operator raft list-peers
-
 ```
-## Output
-
-```bash
-Node      Address                    State       Voter
-----      -------                    -----       -----
-vault-node-1    192.168.56.130:8201    leader      true
-```
-
-## Step 7: Unseal  Nodes-2 Uaing Master Node Key:
-
-To add other Vault nodes to the cluster (Vault2, Vault3), So I need to unseal each of them using the unseal keys. This is important, because without unsealing, Vault will not join the cluster.
-
-```bash
-
-Terminal-2
-vault operator unseal <key1>
-vault operator unseal <key2>
-vault operator unseal <key3>
-
-
-```
-
-## Step 8: Unseal  Nodes-3 Uaing Master Node Key:
-
-To add other Vault nodes to the cluster (Vault2, Vault3), So I need to unseal each of them using the unseal keys. This is important, because without unsealing, Vault will not join the cluster.
-
-```bash
-Terminal-3
-vault operator unseal <key1>
-vault operator unseal <key2>
-vault operator unseal <key3>
-
-```
-
-## Step 9 : Verify Vault Cluster Status
 
 ```bash
 vault login <root key>
@@ -298,6 +408,10 @@ vault-node-1    192.168.56.130:8201    leader      true
 vault-node-2    192.168.56.131:8201    follower    true
 vault-node-3    192.168.56.132:8201    follower    true
 ```
+
+
+
+
 
 
 ## ⚠️ Fault Tolerance Test
